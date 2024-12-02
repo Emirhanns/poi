@@ -2,6 +2,7 @@ require('dotenv').config(); // .env dosyasını yükler
 const express = require('express');
 const connectDB = require('./db/db'); // db.js dosyanız
 const userRoutes = require('./routes/userRoutes');
+require('dotenv').config();  // dotenv modülünü yükleyin
 
 
 const app = express();
