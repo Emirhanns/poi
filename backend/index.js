@@ -12,6 +12,10 @@ app.use(express.json()); // JSON için middleware
 // MongoDB Bağlantısı
 connectDB();
 
+app.get('/', (req, res) => {
+  res.send('Server is running!'); // Sunucu çalışıyor mesajı
+});
+
 app.use(express.json()); // JSON verilerini işlemek için
 
 // Örnek rota
