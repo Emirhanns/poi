@@ -36,11 +36,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       // Base URL ile tam URL oluşturuluyor
-    final response = await http.post(
-      Uri.parse('${process.env['BaseUrl']}/api/users/login'), // BaseUrl ve endpoint birleştirildi
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'name': name, 'password': password}),
-    );
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/users/login'), // Backend URL
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'name': name, 'password': password}),
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

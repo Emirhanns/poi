@@ -1,29 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import './edit_form_screen.dart';
-import '../routes.dart';  // AppRoutes dosyasını import edin
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'POI Harita',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      initialRoute: '/', // Başlangıçta LoginScreen'i göster
-      routes: AppRoutes.getRoutes(),  // Burada AppRoutes.getRoutes() fonksiyonunu kullanıyoruz
-    );
-  }
-}
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -33,34 +11,94 @@ class MapScreen extends StatefulWidget {
 }
 
 class MapScreenState extends State<MapScreen> {
-  final LatLng _center =
-      const LatLng(41.0082, 28.9784); // İstanbul Koordinatları
-
+  LatLng _currentLocation = const LatLng(41.685166, 26.573157); // Default: İstanbul
   final Set<Marker> _markers = {};
-
+  final Set<Circle> _circles = {};
   bool _isSatelliteView = false; // Uydu Görünümü için Switch kontrolü
-  final String remainingFiles =
-      "5"; // Kalan dosya sayısı (örnek olarak 5 yazıldı)
-
-  // Drawer key
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>(); // Drawer key
 
   @override
   void initState() {
     super.initState();
-    _markers.add(
+    _markers.addAll([
+      // İlk marker
       Marker(
         markerId: const MarkerId('marker1'),
-        position: const LatLng(41.0082, 28.9784),
-        infoWindow:
-            const InfoWindow(title: 'Watsons', snippet: 'Ferit Selimpaşa Cd.'),
-        onTap: _showBottomMenu,
+        position: const LatLng(41.672738, 26.572685), // İlk konum
+        infoWindow: const InfoWindow(title: 'Marker 1', snippet: 'Konum 1'),
+        onTap: () => _showBottomMenu(LatLng(41.672738, 26.572685)),
       ),
+      // İkinci marker
+      Marker(
+        markerId: const MarkerId('marker2'),
+        position: const LatLng(41.685166, 26.573157), // İkinci konum
+        infoWindow: const InfoWindow(title: 'Marker 2', snippet: 'Konum 2'),
+        onTap: () => _showBottomMenu(LatLng(41.685166, 26.573157)),
+      ),
+    ]);
+    _getUserLocation(); // Kullanıcı konumunu al
+  }
+
+  Future<void> _getUserLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Konum servisini kontrol et
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Konum servisleri devre dışı.');
+    }
+
+    // Konum izni kontrolü
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Konum izni reddedildi.');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error('Konum izni kalıcı olarak reddedildi.');
+    }
+
+    // Kullanıcının mevcut konumunu al
+    Position position = await Geolocator.getCurrentPosition();
+    LatLng userLocation = LatLng(position.latitude, position.longitude);
+
+    setState(() {
+      _currentLocation = userLocation;
+      _circles.clear();
+      _circles.add(
+        Circle(
+          circleId: const CircleId('userRadius'),
+          center: userLocation,
+          radius: 500, // Dairenin yarıçapı (metre cinsinden)
+          fillColor: Colors.blue.withOpacity(0.3),
+          strokeColor: Colors.blue,
+          strokeWidth: 1,
+        ),
+      );
+    });
+  }
+
+  bool _isMarkerWithinCircle(LatLng markerPosition) {
+    double distance = Geolocator.distanceBetween(
+      _currentLocation.latitude,
+      _currentLocation.longitude,
+      markerPosition.latitude,
+      markerPosition.longitude,
     );
+    print('Marker pozisyonu: $markerPosition, Kullanıcı pozisyonu: $_currentLocation, Mesafe: $distance');
+    return distance <= 500; // Marker, çemberin içinde mi?
   }
 
   // Modal Bottom Sheet
-  void _showBottomMenu() {
+  void _showBottomMenu(LatLng markerPosition) {
+    bool isWithinCircle = _isMarkerWithinCircle(markerPosition);
+    print('Marker çember içinde mi? $isWithinCircle'); // Debug için sonucu kontrol et
+
+    // Show the bottom sheet
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
@@ -87,21 +125,29 @@ class MapScreenState extends State<MapScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   ElevatedButton.icon(
-                    onPressed: () {
-                      // Düzenleme sayfasına gitme işlemi
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const EditFormScreen()),
-                      );
-                    },
+                    onPressed: isWithinCircle
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const EditFormScreen()),
+                            );
+                          }
+                        : null, // Çember dışındaysa buton devre dışı
                     icon: const Icon(Icons.edit),
                     label: const Text('Düzenle'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isWithinCircle
+                          ? Colors.blue // Çember içindeyse mavi
+                          : Colors.grey, // Çember dışındaysa gri
+                    ),
                   ),
-                
-                 
                 ],
               ),
+              if (!isWithinCircle)
+                const Text(
+                  'Bu marker, mavi çemberin dışında.',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         );
@@ -112,23 +158,23 @@ class MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,  // Scaffold key'i ekledik
+      key: _scaffoldKey,
       appBar: AppBar(
         title: const Align(
-          alignment: Alignment.centerRight, // Yazıyı sağa hizaladık
+          alignment: Alignment.centerRight,
           child: Text(
             'POI',
             style: TextStyle(
-              color: Colors.black, // Yazının rengini siyah yaptık
+              color: Colors.black,
             ),
           ),
         ),
-        backgroundColor: Colors.white, // AppBar arka planını beyaz yapıyoruz
-        toolbarHeight: 50, // AppBar'ın yüksekliğini ayarlıyoruz
+        backgroundColor: Colors.white,
+        toolbarHeight: 50,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black), // Menü butonu
+          icon: const Icon(Icons.menu, color: Colors.black),
           onPressed: () {
-            _scaffoldKey.currentState?.openDrawer(); // Menü açma
+            _scaffoldKey.currentState?.openDrawer();
           },
         ),
       ),
@@ -136,11 +182,10 @@ class MapScreenState extends State<MapScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: <Widget>[
-            // DrawerHeader yerine Container kullandık
             Container(
               color: Colors.blue,
               padding: const EdgeInsets.all(16),
-              height: 100, // DrawerHeader'ın yüksekliğini buradan ayarlıyoruz
+              height: 100,
               child: const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -164,33 +209,7 @@ class MapScreenState extends State<MapScreen> {
                 },
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.file_copy),
-              title: const Text('Kalan Dosya Sayısı'),
-              subtitle: Text(remainingFiles.toString()),
-            ),
             const Divider(),
-            ListTile(
-              leading: const Icon(Icons.refresh),
-              title: const Text('Verileri Yenile'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.upload_file),
-              title: const Text('Kalan Verileri Gönder'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo),
-              title: const Text('Fotoğrafları Tekrar Gönder'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
             ListTile(
               leading: const Icon(Icons.exit_to_app),
               title: const Text('Çıkış'),
@@ -204,12 +223,19 @@ class MapScreenState extends State<MapScreen> {
       body: Stack(
         children: [
           GoogleMap(
+            mapType: _isSatelliteView ? MapType.satellite : MapType.normal,
+            myLocationEnabled: true, // Kullanıcıyı mavi nokta olarak göster
             onMapCreated: (GoogleMapController controller) {},
             initialCameraPosition: CameraPosition(
-              target: _center,
+              target: _currentLocation,
               zoom: 15.0,
             ),
             markers: _markers,
+            circles: _circles,
+            onTap: (LatLng position) {
+              // Marker'lara tıkladığında, marker'ı ve mesafeyi kontrol et
+              _showBottomMenu(position);
+            },
           ),
         ],
       ),
