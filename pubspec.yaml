@@ -34,6 +34,8 @@ dependencies:
   location: ^5.0.0
   geolocator: ^9.0.2
   http: ^1.2.2 # Veya en son sürümünü buraya yazabilirsiniz
+  flutter_dotenv: ^5.0.2
+
 
 
   # The following adds the Cupertino Icons font to your application.
