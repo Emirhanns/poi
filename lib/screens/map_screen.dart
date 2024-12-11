@@ -73,7 +73,7 @@ class MapScreenState extends State<MapScreen> {
         Circle(
           circleId: const CircleId('userRadius'),
           center: userLocation,
-          radius: 500, // Dairenin yarıçapı (metre cinsinden)
+          radius: 800, // Dairenin yarıçapı (metre cinsinden)
           fillColor: Colors.blue.withOpacity(0.3),
           strokeColor: Colors.blue,
           strokeWidth: 1,
@@ -90,7 +90,7 @@ class MapScreenState extends State<MapScreen> {
       markerPosition.longitude,
     );
     print('Marker pozisyonu: $markerPosition, Kullanıcı pozisyonu: $_currentLocation, Mesafe: $distance');
-    return distance <= 500; // Marker, çemberin içinde mi?
+    return distance <= 800; // Marker, çemberin içinde mi?
   }
 
   // Modal Bottom Sheet
